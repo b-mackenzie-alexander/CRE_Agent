@@ -17,6 +17,13 @@
 - DevSecOps pipeline complete: pre-commit hooks, CI workflows (ci.yml, security.yml, branch-check.yml), PR template, CODEOWNERS, CONTRIBUTING.md
 - Project documentation files created
 
+### PRD Cross-Reference (Yaasameen's PRD v1.0)
+- **MCP Servers adopted:** All 7 data sources wrapped in MCP servers (`src/mcp/`). Replaces direct httpx API calls. Each server caches to Bronze on every call.
+- **Thin custom adapter confirmed:** Rejected Strands Agents SDK despite Yaasameen's PRD specifying it — team agreed thin adapter is right for 8-day scope.
+- **HUD added as 7th source:** Original PRD had 6 sources. Yaasameen's PRD adds HUD (huduser.gov) for vacancy surveys.
+- **Market memo moved to Post-MVP:** Yaasameen's PRD lists it as P2/Nice-to-have. Removed from 8-day ROADMAP.
+- **Sequential build confirmed:** Phase 2 (signal scoring) cannot start until Phase 1 pipeline is stable and returning clean data from all 7 sources.
+
 ### Open Questions
 - What ZIP codes should we target for the demo? Need to pick 3–5 markets to constrain API usage.
 - RentCast free tier = 50 calls/month. What's the minimum ZIP set that makes a compelling demo?

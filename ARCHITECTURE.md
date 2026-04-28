@@ -3,18 +3,23 @@
 ## System Diagram
 
 ```
-Public APIs          Bronze Layer         Silver Layer         Gold Layer           LLM Layer            Delivery
------------          ------------         ------------         ----------           ---------            --------
-FRED              →  Raw API cache     →  ZIP-normalized    →  Scored + ranked  →  Brief gen         →  SendGrid
-ATTOM             →  SQLite tables     →  30-day window     →  0–100 score      →  Market memo       →  Slack
-BLS               →  One row per       →  Null-handled      →  Top 5–10         →  Tool use
-RentCast          →  API response      →  Deduplicated      →  Explainable      →  Prompt cache
-Census
-FHFA
-                                                                     |
-                                                                     v
-                                                           Frontend reads Gold layer JSON
-                                                           (Yaasameen's dashboard)
+Public APIs       MCP Servers (src/mcp/)   Bronze Layer         Silver Layer         Gold Layer        LLM Layer       Delivery
+-----------       ----------------------   ------------         ------------         ----------        ---------       --------
+FRED           →  get_delinquency_rate  →  Raw API cache     →  ZIP-normalized    →  Scored+ranked →  Brief gen    →  SendGrid
+ATTOM          →  get_foreclosure_fgs   →  SQLite tables     →  30-day window     →  0–100 score   →  Action alert →  Slack
+               →  get_deed_transfers    →  One row per       →  Null-handled      →  Top 5–10      →  Tool use
+RentCast       →  get_rent_trend        →  API response      →  Deduplicated      →  Explainable   →  Prompt cache
+               →  get_vacancy_rate
+BLS            →  get_employment_trend
+FHFA           →  get_price_index
+Census ACS     →  get_demographics
+HUD            →  get_hud_vacancy
+                          |
+                          └── caches to Bronze on every call
+                                                                                          |
+                                                                                          v
+                                                                              Frontend reads Gold layer JSON
+                                                                              (Yaasameen's dashboard)
 ```
 
 ## Medallion Layers
@@ -27,6 +32,41 @@ FHFA
 | Frontend | Renders Gold layer JSON | Browser | Yaasameen |
 
 Bronze is append-only. Silver is rebuilt from Bronze on each run. Gold is rebuilt from Silver on each run.
+
+## MCP Servers (Tool Layer)
+
+Each public data source is wrapped in an MCP server — a standardized interface that exposes callable tools to Claude without the model needing to know the underlying API details. MCP servers also handle caching: every API response is written to the Bronze layer on fetch so we never repeat a paid or rate-limited call.
+
+```
+src/mcp/
+  fred.py       # get_delinquency_rate(series_id) → FRED REST API
+  attom.py      # get_foreclosure_filings(zip_code, days_back), get_deed_transfers(zip_code, days_back) → ATTOM
+  rentcast.py   # get_rent_trend(zip_code), get_vacancy_rate(zip_code) → RentCast API
+  bls.py        # get_employment_trend(metro_code) → BLS API
+  fhfa.py       # get_price_index(metro_code) → FHFA API
+  census.py     # get_demographics(census_tract) → Census ACS API
+  hud.py        # get_hud_vacancy(metro_code) → HUD API
+```
+
+Registered tools (the contract Claude sees via @tool schema):
+
+| Tool | Parameters | Source |
+|------|-----------|--------|
+| `get_foreclosure_filings` | `zip_code: str, days_back: int` | ATTOM |
+| `get_deed_transfers` | `zip_code: str, days_back: int` | ATTOM |
+| `get_rent_trend` | `zip_code: str` | RentCast |
+| `get_vacancy_rate` | `zip_code: str` | RentCast |
+| `get_employment_trend` | `metro_code: str` | BLS |
+| `get_price_index` | `metro_code: str` | FHFA |
+| `get_delinquency_rate` | `series_id: str` | FRED |
+| `get_demographics` | `census_tract: str` | Census ACS |
+| `get_hud_vacancy` | `metro_code: str` | HUD |
+
+## RAG Layer
+
+The Gold layer functions as the retrieval base for brief generation. When Claude generates an opportunity brief, it retrieves verified property records and market data from the Gold layer as grounding context before writing. Every claim in a generated brief is traceable to a specific source row — no hallucinated data points.
+
+This is enforced structurally: the brief generation prompt includes the raw Gold layer records for the target ZIP as retrieved context. Claude cannot reference a data point that was not passed in.
 
 ## LLM Abstraction Layer
 
@@ -64,7 +104,8 @@ Business logic imports `LLMAdapter` only. Swapping providers is a single env var
 | Scheduler | APScheduler | In-process; triggers 8am digest pipeline |
 | Email delivery | SendGrid | `SENDGRID_API_KEY` |
 | Slack delivery | Slack API | `SLACK_BOT_TOKEN` |
-| HTTP client | httpx | Async API calls to all data sources |
+| MCP servers | mcp (Python SDK) | Standardized tool layer — wraps each data source, caches to Bronze |
+| HTTP client | httpx | Raw HTTP inside MCP server implementations |
 | Linting | ruff | Lint + format |
 | Type checking | mypy | Strict mode |
 | Security | bandit + detect-secrets + pip-audit | CI enforced |
@@ -81,12 +122,14 @@ Business logic imports `LLMAdapter` only. Swapping providers is a single env var
 | Census ACS | Population, income, housing unit counts by ZIP | REST (free, API key required) |
 | FHFA | House price index by ZIP and metro, quarterly | REST (free) |
 | RentCast | Rental market data: median rent, vacancy, rent change by ZIP | REST (50 calls/month free tier) |
+| HUD | Vacancy surveys: office and residential vacancy trends by metro | REST (free) |
 
-All responses are cached in Bronze layer on first fetch. Never make duplicate API calls.
+All responses are cached in Bronze layer on first fetch via the MCP server layer. Never make duplicate API calls.
 
 ## Key Design Decisions
 
-- **ZIP-code entity resolution:** MVP scores at ZIP level. No geocoding or parcel-level resolution. Keeps data joins simple and all six sources have ZIP-code coverage.
+- **MCP servers as the tool layer:** All data source access goes through MCP servers in `src/mcp/`. Claude never calls external APIs directly — it calls registered tools. Each tool caches its response to Bronze immediately so rate-limited APIs (RentCast: 50 calls/month) are never called twice for the same data.
+- **ZIP-code entity resolution:** MVP scores at ZIP level. No geocoding or parcel-level resolution. Keeps data joins simple and all seven sources have ZIP-code coverage.
 - **Forced tool_choice for structured outputs:** Claude is called with `tool_choice: {"type": "tool", "name": "<tool>"}` wherever JSON output is required. Eliminates free-text parsing and guarantees schema conformance.
 - **Prompt caching from day 1:** Static system prompts (signal thresholds, scoring rubric, domain context) are structured with `cache_control` blocks. OpenRouter ignores these silently; the Claude API activates them on Saturday. No retrofit needed.
 - **Rolling 30-day window:** All Silver layer signals are computed as percentage change over the trailing 30 days. Keeps temporal comparisons consistent across sources with different update frequencies.

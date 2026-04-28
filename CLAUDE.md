@@ -55,6 +55,25 @@ pre-commit run --all-files
 
 Hooks: ruff (lint + format), mypy, bandit, detect-secrets. If a hook fails, fix the code — do not use `--no-verify` once `src/` exists.
 
+## MCP Servers
+
+`src/mcp/` contains one MCP server per data source. Data access always goes through the MCP layer — never call external APIs (FRED, ATTOM, RentCast, BLS, FHFA, Census, HUD) directly from business logic.
+
+Each MCP server:
+1. Exposes tools via the `@tool` decorator pattern (auto-generates the JSON schema Claude sees)
+2. Caches every response to the Bronze SQLite layer before returning — never make a duplicate API call
+
+```
+src/mcp/
+  fred.py       # get_delinquency_rate(series_id)
+  attom.py      # get_foreclosure_filings(zip_code, days_back), get_deed_transfers(zip_code, days_back)
+  rentcast.py   # get_rent_trend(zip_code), get_vacancy_rate(zip_code)
+  bls.py        # get_employment_trend(metro_code)
+  fhfa.py       # get_price_index(metro_code)
+  census.py     # get_demographics(census_tract)
+  hud.py        # get_hud_vacancy(metro_code)
+```
+
 ## LLM Abstraction Layer
 
 `src/llm/` contains a thin adapter. Never call the Anthropic SDK or OpenRouter directly from business logic. Always route through the adapter:

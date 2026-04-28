@@ -1,6 +1,6 @@
 # CRE Signal Agent — Agent Conventions
 
-AI-powered commercial real estate distress signal scorer. Ingests public data (FRED, ATTOM, BLS, Census, FHFA, RentCast), scores signals, and delivers a daily ranked digest before 8am.
+AI-powered commercial real estate distress signal scorer. Ingests public data (FRED, ATTOM, BLS, Census, FHFA, RentCast, HUD) via MCP servers, scores signals, and delivers a daily ranked digest before 8am.
 
 ## Ownership
 

@@ -50,6 +50,19 @@ When calling Claude with `tool_choice: {"type": "tool", "name": "score_signals"}
 
 ---
 
+## MCP Servers
+
+**Every MCP tool must cache to Bronze before returning.**
+The pattern is: check Bronze cache first → if hit, return cached row → if miss, call the external API, write to Bronze, return result. Never call ATTOM, RentCast, or any other rate-limited API without checking the cache first.
+
+**HUD is the 7th data source — easy to miss.**
+Early PRD drafts listed 6 sources (FRED, ATTOM, RentCast, BLS, Census, FHFA). Yaasameen's final PRD added HUD (huduser.gov) for office/residential vacancy trends. There should be 7 MCP servers total, not 6.
+
+**The `@tool` decorator auto-generates the JSON schema Claude sees.**
+Write clean type hints and a clear one-line docstring on every tool function — that becomes the contract Claude uses to decide when and how to call the tool. A vague docstring = Claude calling the tool incorrectly.
+
+---
+
 ## SQLite
 
 **Database lives at `data/cre_signal.db`.**

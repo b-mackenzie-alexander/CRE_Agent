@@ -7,9 +7,12 @@
 - [x] DevSecOps pipeline (CI, pre-commit, branch protection) `[Beatrice]`
 - [ ] Project documentation (CLAUDE.md, AGENTS.md, ARCHITECTURE.md, ROADMAP.md) `[Beatrice]`
 - [ ] LLM abstraction layer (OpenRouter adapter, cache_control, tool use) `[Beatrice]`
-- [ ] Bronze layer: data ingestors (FRED, RentCast, ATTOM, BLS, Census, FHFA) `[Beatrice]`
+- [ ] MCP server setup (one server per data source in `src/mcp/`) `[Beatrice]`
+- [ ] Bronze layer: data ingestors (FRED, RentCast, ATTOM, BLS, Census, FHFA, HUD) `[Beatrice]`
 - [ ] Frontend scaffold (project setup, routing, layout) `[Yaasameen]`
 - [ ] Shared JSON schema definition `[Both]`
+
+> **Build order:** Phase 2 (signal scoring) does not start until the Phase 1 pipeline is returning consistent, normalized data from all 7 sources. Garbage in = garbage brief.
 
 ## Phase 2: Signal Scoring (Days 3–4)
 
@@ -22,7 +25,6 @@
 ## Phase 3: Brief Generation (Days 5–6)
 
 - [ ] Opportunity brief generator (Claude tool use → structured JSON) `[Beatrice]`
-- [ ] Draft market memo generator (Claude → analyst-ready text) `[Beatrice]`
 - [ ] Action alert logic (Model / Monitor / Ignore classification) `[Beatrice]`
 - [ ] Frontend: brief detail view `[Yaasameen]`
 - [ ] Frontend: action alert display `[Yaasameen]`
@@ -36,3 +38,10 @@
 - [ ] End-to-end integration test `[Both]`
 - [ ] Frontend: full pipeline demo ready `[Yaasameen]`
 - [ ] Demo preparation `[Both]`
+
+## Post-MVP (Out of Sprint Scope)
+
+- [ ] Draft market memo generator (Claude → analyst-ready narrative, analyst edits and approves) `[Beatrice]`
+- [ ] Watchlist / custom ZIP alerts `[Both]`
+- [ ] AI valuation model (AVM) `[Both]`
+- [ ] Multi-user access `[Both]`
