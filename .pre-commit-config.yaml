@@ -24,7 +24,7 @@ repos:
         entry: bandit -r src/ -c pyproject.toml
         language: system
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
   # Mypy: type checking
   - repo: local
@@ -34,7 +34,7 @@ repos:
         entry: mypy src/
         language: system
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
   # Pytest: unit tests only (fast, no API keys needed)
   - repo: local
@@ -44,7 +44,7 @@ repos:
         entry: pytest tests/unit/ -v --tb=short -q
         language: system
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
   # Pytest: integration tests on push only (may need env vars)
   - repo: local
@@ -54,4 +54,4 @@ repos:
         entry: pytest tests/integration/ -v --tb=short -q
         language: system
         pass_filenames: false
-        stages: [push]
+        stages: [pre-push]
