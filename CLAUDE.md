@@ -74,16 +74,37 @@ src/mcp/
   hud.py        # get_hud_vacancy(metro_code)
 ```
 
-## LLM Abstraction Layer
+## Build Phases — Architecture Matters Here
 
-`src/llm/` contains a thin adapter. Never call the Anthropic SDK or OpenRouter directly from business logic. Always route through the adapter:
+This project builds in two phases. Understand which phase you're in before writing code.
+
+- **Phase A (Days 1–4, through Friday):** Thin adapter in `src/llm/`. Proves the pipeline works. OpenRouter.
+- **Saturday pivot:** Thin adapter replaced by Strands. Claude API key activates. `src/agents/` is created. `src/llm/adapter.py`, `openrouter.py`, `anthropic.py` are deleted.
+- **Phase B (Days 5–8):** Strands agentic loop. All 7 MCP servers. Full pipeline.
+
+During Phase A, `src/llm/` is the LLM entry point. During Phase B, `src/agents/signal_agent.py` is the entry point. `src/mcp/` and `src/prompts/` are unchanged across both phases.
+
+## LLM Abstraction Layer (Phase A — Demo)
+
+`src/llm/` contains a thin adapter. During Phase A, never call OpenRouter directly from business logic. Always route through the adapter:
 
 ```python
 from src.llm.adapter import LLMAdapter
 ```
 
 - **Now through Friday:** `OpenRouterAdapter` is active (`LLM_PROVIDER=openrouter`)
-- **Saturday 2026-05-02:** Switch to `AnthropicAdapter` (`LLM_PROVIDER=anthropic`) when the direct API key arrives. This is a one env var change.
+- **Saturday 2026-05-02:** This entire layer is replaced by Strands. See the Strands section below.
+
+## Strands Agent (Phase B — Full MVP)
+
+After the Saturday pivot, `src/llm/` is deleted and replaced by `src/agents/`:
+
+```python
+from src.agents.signal_agent import signal_agent
+result = signal_agent("Score distress signals for ZIP codes: 10001, 33101, 60601")
+```
+
+The agent has the system prompt, all 9 MCP tools, and the model baked in. Do not instantiate it more than once — treat it as a singleton in the pipeline.
 
 ## Prompt Caching
 

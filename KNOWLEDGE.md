@@ -67,3 +67,28 @@ Write clean type hints and a clear one-line docstring on every tool function —
 
 **Database lives at `data/cre_signal.db`.**
 The `data/` directory is gitignored. Do not commit the database. Schema migrations live in `data/migrations/` (tracked) and are applied on startup.
+
+---
+
+## Strands Migration (Phase A → Phase B, Saturday 2026-05-02)
+
+**Strands doesn't speak OpenRouter — that's why Phase A uses a thin adapter.**
+Strands has native Anthropic API support but requires LiteLLM as a bridge for OpenRouter. Using a bridge adds complexity and makes the Saturday swap harder. The thin adapter is the right call for Days 1–4.
+
+**The refactor is small by design.**
+Everything in Phase A is structured to make the Saturday swap a one-day job:
+- `src/prompts/scoring.py` — standalone string constants, Strands reads them unchanged
+- `src/mcp/*.py` — `@tool` decorated functions in exactly the format Strands expects
+- `src/llm/adapter.py` — the only thing getting deleted
+
+**What gets deleted Saturday:**
+`src/llm/adapter.py`, `src/llm/openrouter.py`, `src/llm/anthropic.py`
+
+**What gets added Saturday:**
+`src/agents/signal_agent.py` (~50 lines) — Strands `Agent(model=..., tools=[...], system_prompt=...)`
+
+**What is completely unchanged:**
+Bronze/Silver/Gold pipeline, all 7 MCP servers, `src/prompts/`, delivery code, all tests, frontend schema contract.
+
+**Smoke test before starting Phase B work.**
+After the Saturday pivot, run `python run_demo.py` end-to-end before touching anything else. Confirm the Strands agent produces the same ranked digest and brief that the thin adapter produced on Friday.

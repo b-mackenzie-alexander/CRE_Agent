@@ -1,47 +1,72 @@
 # CRE Signal Agent — Roadmap
 
-**Sprint:** 2026-04-27 to 2026-05-06 (8 working days)
+**Sprint:** 2026-04-28 to 2026-05-06 (8 working days)
+**Repo:** https://github.com/b-mackenzie-alexander/CRE_Agent
 
-## Phase 1: Infrastructure & Pipeline (Days 1–2)
+---
+
+## Phase A: Demo Build — Prove It Works (Days 1–4, through 2026-05-01)
+
+Goal: End-to-end pipeline running with 3 data sources, scored by Claude via OpenRouter, producing a ranked digest and one opportunity brief. Thin adapter architecture — gets replaced Saturday.
 
 - [x] DevSecOps pipeline (CI, pre-commit, branch protection) `[Beatrice]`
-- [ ] Project documentation (CLAUDE.md, AGENTS.md, ARCHITECTURE.md, ROADMAP.md) `[Beatrice]`
-- [ ] LLM abstraction layer (OpenRouter adapter, cache_control, tool use) `[Beatrice]`
-- [ ] MCP server setup (one server per data source in `src/mcp/`) `[Beatrice]`
-- [ ] Bronze layer: data ingestors (FRED, RentCast, ATTOM, BLS, Census, FHFA, HUD) `[Beatrice]`
+- [x] Project documentation (CLAUDE.md, AGENTS.md, ARCHITECTURE.md, ROADMAP.md, etc.) `[Beatrice]`
+- [ ] LLM abstraction layer — thin adapter + OpenRouter adapter `[Beatrice]`
+- [ ] MCP servers: FRED, BLS, RentCast (3 of 7) `[Beatrice]`
+- [ ] Bronze layer: SQLite cache for 3 sources `[Beatrice]`
+- [ ] Silver layer: ZIP normalization, 30-day window, null handling `[Beatrice]`
+- [ ] Gold layer: signal scoring (3 signals), ranked digest `[Beatrice]`
+- [ ] Brief generator: one opportunity brief per top signal `[Beatrice]`
+- [ ] Demo run script: `python run_demo.py --zips <zip1,zip2,zip3>` `[Beatrice]`
 - [ ] Frontend scaffold (project setup, routing, layout) `[Yaasameen]`
 - [ ] Shared JSON schema definition `[Both]`
 
-> **Build order:** Phase 2 (signal scoring) does not start until the Phase 1 pipeline is returning consistent, normalized data from all 7 sources. Garbage in = garbage brief.
+---
 
-## Phase 2: Signal Scoring (Days 3–4)
+## Architecture Pivot (Saturday 2026-05-02)
 
-- [ ] Silver layer: ZIP normalization, time alignment, null handling `[Beatrice]`
-- [ ] Gold layer: signal scoring engine (weighted 0–100 score) `[Beatrice]`
-- [ ] Signal threshold config (vacancy, rent, price, employment, foreclosure) `[Beatrice]`
-- [ ] Frontend: digest list view (reads Gold layer JSON) `[Yaasameen]`
-- [ ] Frontend: opportunity card component `[Yaasameen]`
+Claude API key arrives. Thin adapter replaced with Strands. Prompt caching activates automatically.
 
-## Phase 3: Brief Generation (Days 5–6)
+- [ ] Set `LLM_PROVIDER=anthropic`, add `ANTHROPIC_API_KEY` to `.env` `[Beatrice]`
+- [ ] Replace `src/llm/` adapter with Strands Agents SDK `[Beatrice]`
+- [ ] Create `src/agents/signal_agent.py` — Strands Agent wiring model + system prompt + MCP tools `[Beatrice]`
+- [ ] Confirm prompt caching active (cache_control blocks built in from day 1, now live) `[Beatrice]`
+- [ ] Smoke test end-to-end before beginning Phase B `[Beatrice]`
 
-- [ ] Opportunity brief generator (Claude tool use → structured JSON) `[Beatrice]`
-- [ ] Action alert logic (Model / Monitor / Ignore classification) `[Beatrice]`
-- [ ] Frontend: brief detail view `[Yaasameen]`
-- [ ] Frontend: action alert display `[Yaasameen]`
+> Phase B does not begin until the Saturday pivot is confirmed working.
 
-## Phase 4: Delivery & Integration (Days 7–8)
+---
 
-- [ ] APScheduler setup (8am daily trigger) `[Beatrice]`
+## Phase B: Full MVP (Days 5–8, 2026-05-02 to 2026-05-06)
+
+Goal: All 7 data sources, full Strands agentic loop, delivery pipeline, frontend integrated.
+
+### Backend `[Beatrice]`
+
+- [ ] Remaining MCP servers: ATTOM, FHFA, Census ACS, HUD `[Beatrice]`
+- [ ] Full 7-signal scoring via Strands agent `[Beatrice]`
+- [ ] Complete brief generation + action alert logic (Model / Monitor / Ignore) `[Beatrice]`
+- [ ] APScheduler: 8am daily trigger `[Beatrice]`
 - [ ] SendGrid email digest template `[Beatrice]`
 - [ ] Slack digest integration `[Beatrice]`
-- [ ] Claude API key swap (Saturday 2026-05-02) `[Beatrice]`
+
+### Frontend `[Yaasameen]`
+
+- [ ] Digest list view (reads Gold layer JSON) `[Yaasameen]`
+- [ ] Opportunity card component `[Yaasameen]`
+- [ ] Brief detail view `[Yaasameen]`
+- [ ] Action alert display `[Yaasameen]`
+
+### Integration `[Both]`
+
 - [ ] End-to-end integration test `[Both]`
-- [ ] Frontend: full pipeline demo ready `[Yaasameen]`
 - [ ] Demo preparation `[Both]`
+
+---
 
 ## Post-MVP (Out of Sprint Scope)
 
-- [ ] Draft market memo generator (Claude → analyst-ready narrative, analyst edits and approves) `[Beatrice]`
+- [ ] Draft market memo generator (Claude → analyst-ready narrative) `[Beatrice]`
 - [ ] Watchlist / custom ZIP alerts `[Both]`
 - [ ] AI valuation model (AVM) `[Both]`
 - [ ] Multi-user access `[Both]`

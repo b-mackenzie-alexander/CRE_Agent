@@ -1,5 +1,36 @@
 # CRE Signal Agent — Architecture
 
+## Build Phases
+
+This project is built in two architectural phases:
+
+**Phase A — Demo (Days 1–4, through Friday 2026-05-01)**
+Thin custom LLM adapter in `src/llm/`. Single-shot calls to Claude via OpenRouter. Proves the Medallion pipeline, MCP tool pattern, scoring, and brief generation all work correctly before the Claude API key arrives.
+
+**Saturday 2026-05-02 — Architecture Pivot**
+Thin adapter is replaced with the Strands Agents SDK. Claude API key activates. Prompt caching turns on automatically — `cache_control` blocks are built into prompts from day 1 so nothing changes except the provider.
+
+**Phase B — Full MVP (Days 5–8, Saturday onwards)**
+Strands agentic loop (Perceive → Think → Act → Observe → Adjust) replaces the manual scoring orchestration. `src/llm/adapter.py`, `openrouter.py`, and `anthropic.py` are deleted. `src/agents/signal_agent.py` is added. `src/mcp/` is completely unchanged — Strands consumes the same `@tool` decorated functions.
+
+Target Strands structure:
+```
+src/agents/
+  signal_agent.py    # Strands Agent(model=claude, tools=[all MCP tools], system=SCORING_PROMPT)
+
+src/llm/
+  cache.py           # cache_control helpers — kept from demo phase
+  # adapter.py, openrouter.py, anthropic.py are deleted
+
+src/mcp/
+  [7 servers]        # Unchanged — Strands reads the same @tool decorated functions
+
+src/prompts/
+  scoring.py         # System prompt constants — unchanged between phases
+```
+
+---
+
 ## System Diagram
 
 ```
@@ -32,6 +63,43 @@ HUD            →  get_hud_vacancy
 | Frontend | Renders Gold layer JSON | Browser | Yaasameen |
 
 Bronze is append-only. Silver is rebuilt from Bronze on each run. Gold is rebuilt from Silver on each run.
+
+## Strands Agentic Loop (Phase B Target)
+
+The Phase B architecture replaces the manual scoring pipeline with a Strands-driven agentic loop:
+
+```
+Perceive  → Read Gold layer records for target ZIP codes
+Think     → Determine which signals breach thresholds
+Act       → Call MCP tools for additional context if needed
+Observe   → Validate scoring output against schema
+Adjust    → Retry or escalate if output is malformed
+Deliver   → Return ranked digest + opportunity briefs
+```
+
+The Agent is defined once and reused across scoring runs:
+
+```python
+from strands import Agent
+from src.mcp import fred, rentcast, bls, attom, fhfa, census, hud
+from src.prompts.scoring import SCORING_SYSTEM_PROMPT
+
+signal_agent = Agent(
+    model="claude-3-5-sonnet-20241022",
+    system_prompt=SCORING_SYSTEM_PROMPT,
+    tools=[
+        fred.get_delinquency_rate,
+        rentcast.get_rent_trend,
+        rentcast.get_vacancy_rate,
+        bls.get_employment_trend,
+        attom.get_foreclosure_filings,
+        attom.get_deed_transfers,
+        fhfa.get_price_index,
+        census.get_demographics,
+        hud.get_hud_vacancy,
+    ],
+)
+```
 
 ## MCP Servers (Tool Layer)
 
@@ -106,6 +174,7 @@ Business logic imports `LLMAdapter` only. Swapping providers is a single env var
 | Slack delivery | Slack API | `SLACK_BOT_TOKEN` |
 | MCP servers | mcp (Python SDK) | Standardized tool layer — wraps each data source, caches to Bronze |
 | HTTP client | httpx | Raw HTTP inside MCP server implementations |
+| Agent orchestration (Phase B) | Strands Agents SDK | Replaces thin adapter Saturday — agentic loop + native MCP integration |
 | Linting | ruff | Lint + format |
 | Type checking | mypy | Strict mode |
 | Security | bandit + detect-secrets + pip-audit | CI enforced |
