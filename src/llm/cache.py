@@ -8,7 +8,14 @@ from __future__ import annotations
 
 
 def cached_text(text: str) -> dict[str, object]:
-    """Wrap *text* in a cache_control block marked ephemeral."""
+    """Wrap *text* in a cache_control block marked ephemeral.
+
+    Raises:
+        ValueError: If *text* is empty — an empty block cannot be cached
+            by the Anthropic API (minimum 1024 tokens required).
+    """
+    if not text:
+        raise ValueError("cached_text: text must be non-empty")
     return {
         "type": "text",
         "text": text,

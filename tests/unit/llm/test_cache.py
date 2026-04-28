@@ -15,10 +15,11 @@ class TestCachedText:
     def test_cache_control_ephemeral(self) -> None:
         assert cached_text("hello")["cache_control"] == {"type": "ephemeral"}
 
-    def test_empty_string(self) -> None:
-        result = cached_text("")
-        assert result["text"] == ""
-        assert result["cache_control"] == {"type": "ephemeral"}
+    def test_empty_string_raises(self) -> None:
+        import pytest
+
+        with pytest.raises(ValueError, match="non-empty"):
+            cached_text("")
 
 
 class TestBuildCachedSystem:
