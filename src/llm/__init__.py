@@ -7,7 +7,7 @@ import os
 from src.llm.adapter import LLMAdapter, LLMResponse
 from src.llm.openrouter import OpenRouterAdapter
 
-__all__ = ["LLMAdapter", "LLMResponse", "OpenRouterAdapter", "get_adapter"]
+__all__ = ["LLMAdapter", "LLMResponse", "get_adapter"]
 
 
 def get_adapter() -> LLMAdapter:
