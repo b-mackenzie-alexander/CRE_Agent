@@ -11,7 +11,7 @@ class LLMResponse:
     """Normalised response returned by every LLMAdapter implementation."""
 
     content: str | None
-    tool_calls: list[dict[str, object]]
+    tool_calls: tuple[dict[str, object], ...]
     model: str
     stop_reason: str
     usage: dict[str, int]
