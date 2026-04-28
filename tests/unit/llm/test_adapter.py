@@ -16,7 +16,7 @@ class TestLLMResponse:
     def test_content_can_be_none(self) -> None:
         resp = LLMResponse(
             content=None,
-            tool_calls=[],
+            tool_calls=(),
             model="anthropic/claude-3-5-sonnet",
             stop_reason="tool_calls",
             usage={"prompt_tokens": 10, "completion_tokens": 5},
@@ -26,7 +26,7 @@ class TestLLMResponse:
     def test_content_can_be_string(self) -> None:
         resp = LLMResponse(
             content="hello",
-            tool_calls=[],
+            tool_calls=(),
             model="anthropic/claude-3-5-sonnet",
             stop_reason="stop",
             usage={"prompt_tokens": 10, "completion_tokens": 5},
@@ -37,7 +37,7 @@ class TestLLMResponse:
         tc = {"id": "tc_1", "name": "score_signals", "input": {"zip": "10001"}}
         resp = LLMResponse(
             content=None,
-            tool_calls=[tc],
+            tool_calls=(tc,),
             model="anthropic/claude-3-5-sonnet",
             stop_reason="tool_calls",
             usage={"prompt_tokens": 10, "completion_tokens": 5},
@@ -47,7 +47,7 @@ class TestLLMResponse:
     def test_usage_stored(self) -> None:
         resp = LLMResponse(
             content="ok",
-            tool_calls=[],
+            tool_calls=(),
             model="anthropic/claude-3-5-sonnet",
             stop_reason="stop",
             usage={"prompt_tokens": 100, "completion_tokens": 50},
@@ -60,7 +60,7 @@ class TestLLMResponse:
 
         resp = LLMResponse(
             content="ok",
-            tool_calls=[],
+            tool_calls=(),
             model="m",
             stop_reason="stop",
             usage={"prompt_tokens": 1, "completion_tokens": 1},
@@ -92,7 +92,7 @@ class TestLLMAdapterABC:
             ) -> LLMResponse:
                 return LLMResponse(
                     content="ok",
-                    tool_calls=[],
+                    tool_calls=(),
                     model="test",
                     stop_reason="stop",
                     usage={"prompt_tokens": 1, "completion_tokens": 1},
