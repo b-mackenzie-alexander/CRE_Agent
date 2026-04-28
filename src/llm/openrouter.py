@@ -28,6 +28,8 @@ class _HttpClient(Protocol):
         headers: dict[str, str],
     ) -> Any: ...
 
+    def close(self) -> None: ...
+
 
 class OpenRouterAdapter(LLMAdapter):
     """LLMAdapter backed by the OpenRouter API.
@@ -42,13 +44,23 @@ class OpenRouterAdapter(LLMAdapter):
         api_key: str | None = None,
         model: str | None = None,
     ) -> None:
+        self._owns_client: bool = client is None  # True only when we created the client
         self._client: _HttpClient = client or httpx.Client(timeout=60.0)
         self._api_key: str = (
             api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
         )
+        if not self._api_key:
+            raise ValueError(
+                "OpenRouterAdapter requires an API key. "
+                "Pass api_key= or set OPENROUTER_API_KEY in the environment."
+            )
         self._model: str = (
             model if model is not None else os.environ.get("OPENROUTER_MODEL", _DEFAULT_MODEL)
         )
+
+    def __del__(self) -> None:
+        if self._owns_client:
+            self._client.close()
 
     def complete(
         self,

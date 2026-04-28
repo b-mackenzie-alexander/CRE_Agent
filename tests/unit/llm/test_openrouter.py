@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -70,27 +71,39 @@ def _tool_body(
 
 class TestTextResponse:
     def test_returns_llm_response(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_text_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_text_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert isinstance(adapter.complete(messages=[], system="sys"), LLMResponse)
 
     def test_content_extracted(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_text_body(content="Done.")))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_text_body(content="Done.")), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").content == "Done."
 
     def test_tool_calls_empty(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_text_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_text_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").tool_calls == ()
 
     def test_stop_reason_stop(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_text_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_text_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").stop_reason == "stop"
 
     def test_model_set(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_text_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_text_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").model == "anthropic/claude-3-5-sonnet"
 
     def test_usage_tokens(self) -> None:
-        result = OpenRouterAdapter(client=_mock_client(_text_body())).complete(
+        result = OpenRouterAdapter(
+            client=_mock_client(_text_body()), api_key="test-key"
+        ).complete(  # pragma: allowlist secret
             messages=[], system="sys"
         )
         assert result.usage["prompt_tokens"] == 50
@@ -99,46 +112,70 @@ class TestTextResponse:
 
 class TestToolCallResponse:
     def test_tool_calls_not_empty(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_tool_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_tool_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         result = adapter.complete(messages=[], system="sys")
         assert len(result.tool_calls) == 1
 
     def test_tool_call_name(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_tool_body(name="score_signals")))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_tool_body(name="score_signals")), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").tool_calls[0]["name"] == "score_signals"
 
     def test_tool_call_arguments_parsed(self) -> None:
         adapter = OpenRouterAdapter(
-            client=_mock_client(_tool_body(args={"zip_code": "10001", "score": 85}))
+            client=_mock_client(_tool_body(args={"zip_code": "10001", "score": 85})),
+            api_key="test-key",  # pragma: allowlist secret
         )
         result = adapter.complete(messages=[], system="sys")
         assert result.tool_calls[0]["input"]["zip_code"] == "10001"  # type: ignore[index]
 
     def test_stop_reason_tool_calls(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_tool_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_tool_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").stop_reason == "tool_calls"
 
     def test_content_none(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client(_tool_body()))
+        adapter = OpenRouterAdapter(
+            client=_mock_client(_tool_body()), api_key="test-key"
+        )  # pragma: allowlist secret
         assert adapter.complete(messages=[], system="sys").content is None
 
 
 class TestErrors:
     def test_401_raises(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client({"error": "Unauthorized"}, status=401))
+        adapter = OpenRouterAdapter(
+            client=_mock_client({"error": "Unauthorized"}, status=401), api_key="test-key"
+        )  # pragma: allowlist secret
         with pytest.raises(RuntimeError, match="401"):
             adapter.complete(messages=[], system="sys")
 
     def test_500_raises(self) -> None:
-        adapter = OpenRouterAdapter(client=_mock_client({"error": "Server Error"}, status=500))
+        adapter = OpenRouterAdapter(
+            client=_mock_client({"error": "Server Error"}, status=500), api_key="test-key"
+        )  # pragma: allowlist secret
         with pytest.raises(RuntimeError, match="500"):
             adapter.complete(messages=[], system="sys")
+
+    def test_missing_api_key_raises(self) -> None:
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {}, clear=False):
+            clean_env = {k: v for k, v in os.environ.items() if k != "OPENROUTER_API_KEY"}
+            with patch.dict(os.environ, clean_env, clear=True):
+                with pytest.raises(ValueError, match="API key"):
+                    OpenRouterAdapter(client=_mock_client(_text_body()))
 
 
 class TestRequestShape:
     def test_correct_url(self) -> None:
         client = _mock_client(_text_body())
-        OpenRouterAdapter(client=client).complete(messages=[], system="sys")
+        OpenRouterAdapter(client=client, api_key="test-key").complete(  # pragma: allowlist secret
+            messages=[], system="sys"
+        )
         assert client.post.call_args[0][0] == "https://openrouter.ai/api/v1/chat/completions"
 
     def test_authorization_header(self) -> None:
@@ -158,7 +195,9 @@ class TestRequestShape:
 
     def test_string_system_sent_as_system_message(self) -> None:
         client = _mock_client(_text_body())
-        OpenRouterAdapter(client=client).complete(messages=[], system="You are helpful.")
+        OpenRouterAdapter(client=client, api_key="test-key").complete(  # pragma: allowlist secret
+            messages=[], system="You are helpful."
+        )
         body = client.post.call_args[1]["json"]
         sys_msgs = [m for m in body["messages"] if m["role"] == "system"]
         assert sys_msgs[0]["content"] == "You are helpful."
@@ -166,7 +205,9 @@ class TestRequestShape:
     def test_list_system_sent_as_system_message(self) -> None:
         client = _mock_client(_text_body())
         blocks = [{"type": "text", "text": "Static.", "cache_control": {"type": "ephemeral"}}]
-        OpenRouterAdapter(client=client).complete(messages=[], system=blocks)
+        OpenRouterAdapter(client=client, api_key="test-key").complete(  # pragma: allowlist secret
+            messages=[], system=blocks
+        )
         body = client.post.call_args[1]["json"]
         sys_msgs = [m for m in body["messages"] if m["role"] == "system"]
         assert sys_msgs[0]["content"] == blocks
