@@ -55,6 +55,19 @@ class TestLLMResponse:
         assert resp.usage["prompt_tokens"] == 100
         assert resp.usage["completion_tokens"] == 50
 
+    def test_response_is_immutable(self) -> None:
+        import dataclasses
+
+        resp = LLMResponse(
+            content="ok",
+            tool_calls=[],
+            model="m",
+            stop_reason="stop",
+            usage={"prompt_tokens": 1, "completion_tokens": 1},
+        )
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            resp.content = "mutated"  # type: ignore[misc]
+
 
 class TestLLMAdapterABC:
     def test_cannot_instantiate_directly(self) -> None:

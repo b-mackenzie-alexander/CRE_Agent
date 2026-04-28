@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class LLMResponse:
     """Normalised response returned by every LLMAdapter implementation."""
 
