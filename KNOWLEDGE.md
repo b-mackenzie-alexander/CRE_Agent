@@ -1,0 +1,56 @@
+# Knowledge Base — CRE Signal Agent
+
+Quirks, gotchas, and non-obvious things discovered during the build.
+
+---
+
+## Pre-Commit
+
+**Exit code 5 from pytest on empty test directories is not a failure.**
+pytest returns exit code 5 ("no tests collected") when a test directory is empty. Pre-commit treats this as a hook failure by default. Fix: pytest is configured with `--ignore` flags or the directories won't be empty once backend code exists. For now, if you run `pre-commit run pytest-unit --all-files` on an empty `tests/unit/`, it will show failure — that's expected until first tests are written.
+
+**Use `--no-verify` only for infrastructure commits, never for code.**
+During the DevSecOps setup phase, commits used `--no-verify` because `src/` didn't exist yet. Once `src/` exists, `--no-verify` is banned. If a hook fails, fix the code.
+
+**Stage names must be `pre-commit`/`pre-push`, not `commit`/`push`.**
+Pre-commit v4+ uses the longer names. The short names still work but produce deprecation warnings and will break in v5.
+
+---
+
+## detect-secrets
+
+**Regenerate the baseline after adding any string that looks like a secret.**
+If you add a config value, API endpoint URL, or test fixture that contains a long random-looking string, detect-secrets may flag it. Run `detect-secrets scan > .secrets.baseline` to update the baseline, then commit the updated baseline. This is not a security hole — you're acknowledging a known false positive.
+
+**The baseline must be committed.**
+`.secrets.baseline` is tracked in git. If it's missing, the CI secrets-scan job will fail.
+
+---
+
+## API Limits
+
+**RentCast free tier = 50 calls/month.**
+Cache every response in SQLite immediately. Never make the same call twice without checking the cache first. For the demo, constrain to 3–5 ZIP codes maximum.
+
+**ATTOM sandbox has its own call limits.**
+Check the ATTOM dashboard for current quota. Same rule: cache everything.
+
+---
+
+## LLM
+
+**OpenRouter ignores `cache_control` — that's fine.**
+The Anthropic `cache_control` field on messages is silently ignored by OpenRouter. Build the caching structure into prompts now so the switch to Claude API on Saturday activates it automatically.
+
+**`OPENROUTER_API_KEY` is the env var name for the abstraction layer.**
+The adapter reads `LLM_PROVIDER` (values: `openrouter` or `anthropic`) and the corresponding key (`OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`). Both must be in `.env`.
+
+**Forced tool_choice gives you guaranteed JSON.**
+When calling Claude with `tool_choice: {"type": "tool", "name": "score_signals"}`, the model is forced to return a valid tool_use block. This is the correct pattern for the scoring layer — do not use `tool_choice: "auto"` where structured output is required.
+
+---
+
+## SQLite
+
+**Database lives at `data/cre_signal.db`.**
+The `data/` directory is gitignored. Do not commit the database. Schema migrations live in `data/migrations/` (tracked) and are applied on startup.
