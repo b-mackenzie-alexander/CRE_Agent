@@ -160,6 +160,35 @@ class TestErrors:
         with pytest.raises(RuntimeError, match="500"):
             adapter.complete(messages=[], system="sys")
 
+    def test_malformed_tool_args_raises(self) -> None:
+        body = {
+            "id": "chatcmpl-bad",
+            "model": "anthropic/claude-3-5-sonnet",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "tc_1",
+                                "type": "function",
+                                "function": {"name": "score", "arguments": "not-valid-json{"},
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+        adapter = OpenRouterAdapter(
+            client=_mock_client(body), api_key="test-key"
+        )  # pragma: allowlist secret
+        with pytest.raises(RuntimeError, match="malformed JSON"):
+            adapter.complete(messages=[], system="sys")
+
     def test_missing_api_key_raises(self) -> None:
         from unittest.mock import patch
 

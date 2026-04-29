@@ -106,7 +106,12 @@ class OpenRouterAdapter(LLMAdapter):
         for tc in message.get("tool_calls") or []:
             fn = tc.get("function", {})
             raw_args = fn.get("arguments", "{}")
-            parsed: object = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            try:
+                parsed: object = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(
+                    f"OpenRouter returned malformed JSON in tool_calls arguments: {exc}"
+                ) from exc
             raw_tool_calls.append(
                 {"id": tc.get("id", ""), "name": fn.get("name", ""), "input": parsed}
             )
