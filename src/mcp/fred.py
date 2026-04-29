@@ -40,11 +40,14 @@ def _fetch_delinquency_rate(
         )
 
     params = {"series_id": series_id, "api_key": api_key, "file_type": "json"}
-    if client is None:
-        with httpx.Client(timeout=30.0) as _client:
-            response = _client.get(_FRED_OBSERVATIONS_URL, params=params)
-    else:
-        response = client.get(_FRED_OBSERVATIONS_URL, params=params)
+    try:
+        if client is None:
+            with httpx.Client(timeout=30.0) as _client:
+                response = _client.get(_FRED_OBSERVATIONS_URL, params=params)
+        else:
+            response = client.get(_FRED_OBSERVATIONS_URL, params=params)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"FRED API request failed: {exc}") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
         raise RuntimeError(f"FRED API returned HTTP {response.status_code}: {response.text}")

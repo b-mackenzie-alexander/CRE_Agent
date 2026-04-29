@@ -6,6 +6,7 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 
@@ -129,6 +130,16 @@ class TestFetchEmploymentTrendErrors:
                         "LAUMT060310000000003",
                         client=_mock_client({"error": "server error"}, status=500),
                     )
+
+    def test_transport_error_raises_runtime_error(self) -> None:
+        client = _mock_client({})
+        client.post.side_effect = httpx.ConnectError("connection refused")
+        with patch("src.mcp.bls.bronze_get", return_value=None):
+            with patch.dict(os.environ, {"BLS_API_KEY": "test-key"}):  # pragma: allowlist secret
+                from src.mcp.bls import _fetch_employment_trend
+
+                with pytest.raises(RuntimeError, match="BLS API request failed"):
+                    _fetch_employment_trend("LAUMT060310000000003", client=client)
 
     def test_bls_api_failure_status_raises(self) -> None:
         error_body: dict[str, object] = {

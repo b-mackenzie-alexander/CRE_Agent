@@ -6,6 +6,7 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 
@@ -113,6 +114,19 @@ class TestFetchMarketsErrors:
 
                 with pytest.raises(ValueError, match="RENTCAST_API_KEY"):
                     _fetch_markets("10001", client=_mock_client({}))
+
+    def test_transport_error_raises_runtime_error(self) -> None:
+        client = _mock_client({})
+        client.get.side_effect = httpx.ConnectError("connection refused")
+        with patch("src.mcp.rentcast.bronze_get", return_value=None):
+            with patch.dict(
+                os.environ,
+                {"RENTCAST_API_KEY": "test-key"},  # pragma: allowlist secret
+            ):
+                from src.mcp.rentcast import _fetch_markets
+
+                with pytest.raises(RuntimeError, match="RentCast API request failed"):
+                    _fetch_markets("10001", client=client)
 
 
 class TestGetRentTrend:

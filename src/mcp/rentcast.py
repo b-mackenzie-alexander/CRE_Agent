@@ -43,11 +43,14 @@ def _fetch_markets(
 
     params = {"zipCode": zip_code}
     headers = {"X-Api-Key": api_key}
-    if client is None:
-        with httpx.Client(timeout=30.0) as _client:
-            response = _client.get(_RENTCAST_MARKETS_URL, params=params, headers=headers)
-    else:
-        response = client.get(_RENTCAST_MARKETS_URL, params=params, headers=headers)
+    try:
+        if client is None:
+            with httpx.Client(timeout=30.0) as _client:
+                response = _client.get(_RENTCAST_MARKETS_URL, params=params, headers=headers)
+        else:
+            response = client.get(_RENTCAST_MARKETS_URL, params=params, headers=headers)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"RentCast API request failed: {exc}") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
         raise RuntimeError(f"RentCast API returned HTTP {response.status_code}: {response.text}")

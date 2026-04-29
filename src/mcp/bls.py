@@ -41,11 +41,14 @@ def _fetch_employment_trend(
 
     body: dict[str, object] = {"seriesid": [metro_code], "registrationkey": api_key}
     headers = {"Content-Type": "application/json"}
-    if client is None:
-        with httpx.Client(timeout=30.0) as _client:
-            response = _client.post(_BLS_URL, json=body, headers=headers)
-    else:
-        response = client.post(_BLS_URL, json=body, headers=headers)
+    try:
+        if client is None:
+            with httpx.Client(timeout=30.0) as _client:
+                response = _client.post(_BLS_URL, json=body, headers=headers)
+        else:
+            response = client.post(_BLS_URL, json=body, headers=headers)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"BLS API request failed: {exc}") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
         raise RuntimeError(f"BLS API returned HTTP {response.status_code}: {response.text}")

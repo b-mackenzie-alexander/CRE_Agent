@@ -6,6 +6,7 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 
@@ -121,6 +122,16 @@ class TestFetchDelinquencyRateErrors:
                         "DRSREACBS",
                         client=_mock_client({"error": "rate limited"}, status=429),
                     )
+
+    def test_transport_error_raises_runtime_error(self) -> None:
+        client = _mock_client({})
+        client.get.side_effect = httpx.ConnectError("connection refused")
+        with patch("src.mcp.fred.bronze_get", return_value=None):
+            with patch.dict(os.environ, {"FRED_API_KEY": "test-key"}):  # pragma: allowlist secret
+                from src.mcp.fred import _fetch_delinquency_rate
+
+                with pytest.raises(RuntimeError, match="FRED API request failed"):
+                    _fetch_delinquency_rate("DRSREACBS", client=client)
 
 
 class TestGetDelinquencyRate:
