@@ -119,3 +119,14 @@ class TestFetchDelinquencyRateErrors:
                         "DRSREACBS",
                         client=_mock_client({"error": "rate limited"}, status=429),
                     )
+
+
+class TestGetDelinquencyRate:
+    def test_delegates_to_fetch(self) -> None:
+        expected = _fred_body()
+        with patch("src.mcp.fred._fetch_delinquency_rate", return_value=expected) as mock_fetch:
+            from src.mcp.fred import get_delinquency_rate
+
+            result = get_delinquency_rate("DRSREACBS")
+            assert result == expected
+            mock_fetch.assert_called_once_with("DRSREACBS")

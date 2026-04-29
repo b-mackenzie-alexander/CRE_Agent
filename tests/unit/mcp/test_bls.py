@@ -139,3 +139,14 @@ class TestFetchEmploymentTrendErrors:
 
                 with pytest.raises(RuntimeError, match="REQUEST_FAILED"):
                     _fetch_employment_trend("LAUMT060310000000003", client=_mock_client(error_body))
+
+
+class TestGetEmploymentTrend:
+    def test_delegates_to_fetch(self) -> None:
+        expected = _bls_body()
+        with patch("src.mcp.bls._fetch_employment_trend", return_value=expected) as mock_fetch:
+            from src.mcp.bls import get_employment_trend
+
+            result = get_employment_trend("LAUMT060310000000003")
+            assert result == expected
+            mock_fetch.assert_called_once_with("LAUMT060310000000003")
