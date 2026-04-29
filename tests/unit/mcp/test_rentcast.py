@@ -35,13 +35,15 @@ def _markets_body() -> dict[str, object]:
 class TestFetchMarketsCache:
     def test_cache_hit_skips_api_call(self) -> None:
         cached = _markets_body()
+        client = _mock_client({})
         with patch("src.mcp.rentcast.bronze_get", return_value=cached):
             with patch("src.mcp.rentcast.bronze_set") as mock_set:
                 from src.mcp.rentcast import _fetch_markets
 
-                result = _fetch_markets("10001", client=_mock_client({}))
+                result = _fetch_markets("10001", client=client)
                 assert result == cached
                 mock_set.assert_not_called()
+                client.get.assert_not_called()
 
     def test_cache_miss_writes_bronze(self) -> None:
         api_body = _markets_body()

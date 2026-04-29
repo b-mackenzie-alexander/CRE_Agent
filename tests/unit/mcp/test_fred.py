@@ -33,13 +33,15 @@ def _fred_body() -> dict[str, object]:
 class TestFetchDelinquencyRateCache:
     def test_cache_hit_skips_api_call(self) -> None:
         cached = _fred_body()
+        client = _mock_client({})
         with patch("src.mcp.fred.bronze_get", return_value=cached):
             with patch("src.mcp.fred.bronze_set") as mock_set:
                 from src.mcp.fred import _fetch_delinquency_rate
 
-                result = _fetch_delinquency_rate("DRSREACBS", client=_mock_client({}))
+                result = _fetch_delinquency_rate("DRSREACBS", client=client)
                 assert result == cached
                 mock_set.assert_not_called()
+                client.get.assert_not_called()
 
     def test_cache_miss_writes_bronze(self) -> None:
         api_body = _fred_body()

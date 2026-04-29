@@ -40,13 +40,15 @@ def _bls_body(series_id: str = "LAUMT060310000000003") -> dict[str, object]:
 class TestFetchEmploymentTrendCache:
     def test_cache_hit_skips_api_call(self) -> None:
         cached = _bls_body()
+        client = _mock_client({})
         with patch("src.mcp.bls.bronze_get", return_value=cached):
             with patch("src.mcp.bls.bronze_set") as mock_set:
                 from src.mcp.bls import _fetch_employment_trend
 
-                result = _fetch_employment_trend("LAUMT060310000000003", client=_mock_client({}))
+                result = _fetch_employment_trend("LAUMT060310000000003", client=client)
                 assert result == cached
                 mock_set.assert_not_called()
+                client.post.assert_not_called()
 
     def test_cache_miss_writes_bronze(self) -> None:
         api_body = _bls_body()
