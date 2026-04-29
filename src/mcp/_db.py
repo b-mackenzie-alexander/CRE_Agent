@@ -25,8 +25,7 @@ def _get_conn() -> sqlite3.Connection:
         )
     """)
     conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_bronze_source_key "
-        "ON bronze_cache(source, cache_key)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_bronze_source_key ON bronze_cache(source, cache_key)"
     )
     conn.commit()
     return conn
