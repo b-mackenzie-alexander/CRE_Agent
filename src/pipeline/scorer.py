@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
 
 from src.llm.adapter import LLMAdapter
 from src.pipeline.normalizer import SilverRecord
@@ -66,6 +65,44 @@ class GoldRecord:
     rank: int = 0
 
 
+def _find_tool_input(
+    tool_calls: tuple[dict[str, object], ...],
+    tool_name: str,
+) -> dict[str, object]:
+    for tool_call in tool_calls:
+        if tool_call.get("name") != tool_name:
+            continue
+        payload = tool_call.get("input")
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"{tool_name} returned a non-object payload: {payload!r}")
+        return payload
+    raise RuntimeError(f"LLM did not return a {tool_name} tool call.")
+
+
+def _parse_score(scores: dict[str, object], field: str) -> int:
+    if field not in scores:
+        raise RuntimeError(f"score_signals payload missing required field: {field}")
+    try:
+        value = int(str(scores[field]))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"score_signals field {field} is not an integer: {scores[field]!r}"
+        ) from exc
+    if not 0 <= value <= 100:
+        raise RuntimeError(f"score_signals field {field} must be between 0 and 100: {value}")
+    return value
+
+
+def _parse_rationale(scores: dict[str, object]) -> str:
+    rationale = scores.get("rationale")
+    if rationale is None:
+        raise RuntimeError("score_signals payload missing required field: rationale")
+    text = str(rationale).strip()
+    if not text:
+        raise RuntimeError("score_signals rationale must be non-empty")
+    return text
+
+
 def _build_user_message(record: SilverRecord) -> str:
     return (
         f"ZIP code: {record.zip_code}\n"
@@ -81,31 +118,20 @@ def _build_user_message(record: SilverRecord) -> str:
 
 def score_zip(record: SilverRecord, adapter: LLMAdapter) -> GoldRecord:
     """Call the LLM with forced tool use and return a GoldRecord (rank=0)."""
-    response: Any = adapter.complete(
+    response = adapter.complete(
         messages=[{"role": "user", "content": _build_user_message(record)}],
         system=SCORING_SYSTEM_PROMPT,
         tools=[SCORE_SIGNALS_TOOL],
         tool_choice={"type": "tool", "name": "score_signals"},
     )
-
-    content = response.content if isinstance(response.content, list) else []
-    tool_block = next(
-        (b for b in content if getattr(b, "name", None) == "score_signals"),
-        None,
-    )
-    if tool_block is None:
-        raise RuntimeError(
-            "LLM did not return a score_signals tool use block. " f"Content: {response.content}"
-        )
-
-    scores: dict[str, object] = tool_block.input
+    scores = _find_tool_input(response.tool_calls, "score_signals")
     return GoldRecord(
         zip_code=record.zip_code,
-        delinquency_score=int(str(scores["delinquency_score"])),
-        employment_score=int(str(scores["employment_score"])),
-        rent_vacancy_score=int(str(scores["rent_vacancy_score"])),
-        overall_score=int(str(scores["overall_score"])),
-        rationale=str(scores["rationale"]),
+        delinquency_score=_parse_score(scores, "delinquency_score"),
+        employment_score=_parse_score(scores, "employment_score"),
+        rent_vacancy_score=_parse_score(scores, "rent_vacancy_score"),
+        overall_score=_parse_score(scores, "overall_score"),
+        rationale=_parse_rationale(scores),
         rank=0,
     )
 

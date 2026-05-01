@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from src.llm.adapter import LLMResponse
 from src.pipeline.normalizer import SilverRecord
 
 
@@ -28,17 +29,21 @@ def _silver(
     )
 
 
-def _make_adapter(scores: dict) -> MagicMock:  # type: ignore[type-arg]
-    tool_use = MagicMock()
-    tool_use.type = "tool_use"
-    tool_use.name = "score_signals"
-    tool_use.input = scores
-
-    response = MagicMock()
-    response.content = [tool_use]
-
+def _make_adapter(scores: dict[str, object]) -> MagicMock:
     adapter = MagicMock()
-    adapter.complete.return_value = response
+    adapter.complete.return_value = LLMResponse(
+        content=None,
+        tool_calls=(
+            {
+                "id": "tc_1",
+                "name": "score_signals",
+                "input": scores,
+            },
+        ),
+        model="anthropic/claude-3-5-sonnet",
+        stop_reason="tool_calls",
+        usage={"prompt_tokens": 10, "completion_tokens": 5},
+    )
     return adapter
 
 
@@ -80,6 +85,21 @@ class TestScoreZip:
         assert call_kwargs["tools"] == [SCORE_SIGNALS_TOOL]
         assert call_kwargs["tool_choice"] == {"type": "tool", "name": "score_signals"}
 
+    def test_reads_tool_calls_from_llm_response(self) -> None:
+        from src.pipeline.scorer import score_zip
+
+        adapter = _make_adapter(
+            {
+                "delinquency_score": 61,
+                "employment_score": 55,
+                "rent_vacancy_score": 40,
+                "overall_score": 56,
+                "rationale": "Uses real tool_calls payload.",
+            }
+        )
+        result = score_zip(_silver(), adapter)
+        assert result.overall_score == 56
+
     def test_silver_fields_included_in_user_message(self) -> None:
         from src.pipeline.scorer import score_zip
 
@@ -104,12 +124,31 @@ class TestScoreZip:
         import pytest
         from src.pipeline.scorer import score_zip
 
-        response = MagicMock()
-        response.content = []
         adapter = MagicMock()
-        adapter.complete.return_value = response
+        adapter.complete.return_value = LLMResponse(
+            content=None,
+            tool_calls=(),
+            model="anthropic/claude-3-5-sonnet",
+            stop_reason="stop",
+            usage={"prompt_tokens": 10, "completion_tokens": 5},
+        )
 
         with pytest.raises(RuntimeError, match="score_signals"):
+            score_zip(_silver(), adapter)
+
+    def test_raises_on_missing_required_score_field(self) -> None:
+        import pytest
+        from src.pipeline.scorer import score_zip
+
+        adapter = _make_adapter(
+            {
+                "delinquency_score": 50,
+                "employment_score": 40,
+                "rent_vacancy_score": 30,
+                "rationale": "missing overall score",
+            }
+        )
+        with pytest.raises(RuntimeError, match="overall_score"):
             score_zip(_silver(), adapter)
 
 
